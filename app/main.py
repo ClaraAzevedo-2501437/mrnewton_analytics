@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from datetime import datetime
 import logging
 
@@ -40,6 +41,11 @@ async def log_requests(request, call_next):
 
 # Include routers
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytics"])
+
+# Root redirect to API docs
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/api-docs")
 
 # Health check endpoint
 @app.get("/health", tags=["Health"])
