@@ -1,0 +1,152 @@
+{
+	"info": {
+		"_postman_id": "7b784d44-93e8-4074-99da-976c3f0fae93",
+		"name": "mrnewton_analytics",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "50486253",
+		"_collection_link": "https://clara-azevedo-2501437-4196425.postman.co/workspace/Clara's-Workspace~1b0dd33b-4d48-4b3e-854c-7bfceb42bc4b/collection/50486253-7b784d44-93e8-4074-99da-976c3f0fae93?action=share&source=collection_link&creator=50486253"
+	},
+	"item": [
+		{
+			"name": "Contract",
+			"item": [
+				{
+					"name": "Get Analytics Contract",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/v1/analytics/contract",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"contract"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create/Update Analytics Contract",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"qualitative\": [\r\n    {\r\n      \"name\": \"answer_rationale\",\r\n      \"type\": \"text/plain\",\r\n      \"description\": \"Descrição do raciocínio do estudante para avaliação qualitativa\"\r\n    }\r\n  ],\r\n  \"quantitative\": [\r\n    {\r\n      \"name\": \"total_attempts\",\r\n      \"type\": \"integer\",\r\n      \"description\": \"Número total de tentativas realizadas em toda a atividade\"\r\n    },\r\n    {\r\n      \"name\": \"total_time_seconds\",\r\n      \"type\": \"integer\",\r\n      \"description\": \"Tempo total gasto na atividade, em segundos\"\r\n    },\r\n    {\r\n      \"name\": \"average_time_per_attempt\",\r\n      \"type\": \"number\",\r\n      \"description\": \"Tempo médio gasto por tentativa\"\r\n    },\r\n    {\r\n      \"name\": \"number_of_correct_answers\",\r\n      \"type\": \"integer\",\r\n      \"description\": \"Número de respostas corretas (opção correta selecionada)\"\r\n    },\r\n    {\r\n      \"name\": \"final_score\",\r\n      \"type\": \"number\",\r\n      \"description\": \"Pontuação final ponderada (0-1), calculada segundo a política de pontuação\"\r\n    },\r\n    {\r\n      \"name\": \"activity_success\",\r\n      \"type\": \"boolean\",\r\n      \"description\": \"Indicador se o aluno atingiu o objetivo mínimo definido (threshold)\"\r\n    }\r\n  ]\r\n}\r\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/v1/analytics/contract",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"contract"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Analytics",
+			"item": [
+				{
+					"name": "Get Analytics of a Students Response",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"qualitative\": [\r\n    {\r\n      \"name\": \"answer_rationale\",\r\n      \"type\": \"text/plain\",\r\n      \"description\": \"Descrição do raciocínio do estudante para avaliação qualitativa\"\r\n    }\r\n  ],\r\n  \"quantitative\": [\r\n    {\r\n      \"name\": \"total_attempts\",\r\n      \"type\": \"integer\",\r\n      \"description\": \"Número total de tentativas realizadas em toda a atividade\"\r\n    },\r\n    {\r\n      \"name\": \"total_time_seconds\",\r\n      \"type\": \"integer\",\r\n      \"description\": \"Tempo total gasto na atividade, em segundos\"\r\n    },\r\n    {\r\n      \"name\": \"average_time_per_attempt\",\r\n      \"type\": \"number\",\r\n      \"description\": \"Tempo médio gasto por tentativa\"\r\n    },\r\n    {\r\n      \"name\": \"number_of_correct_answers\",\r\n      \"type\": \"integer\",\r\n      \"description\": \"Número de respostas corretas (opção correta selecionada)\"\r\n    },\r\n    {\r\n      \"name\": \"final_score\",\r\n      \"type\": \"number\",\r\n      \"description\": \"Pontuação final ponderada (0-1), calculada segundo a política de pontuação\"\r\n    },\r\n    {\r\n      \"name\": \"activity_success\",\r\n      \"type\": \"boolean\",\r\n      \"description\": \"Indicador se o aluno atingiu o objetivo mínimo definido (threshold)\"\r\n    }\r\n  ]\r\n}\r\n"
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/v1/analytics/instances/:instance_id/students/:student_id/metrics?force_recalculate=true",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"instances",
+								":instance_id",
+								"students",
+								":student_id",
+								"metrics"
+							],
+							"query": [
+								{
+									"key": "force_recalculate",
+									"value": "true"
+								}
+							],
+							"variable": [
+								{
+									"key": "instance_id",
+									"value": "inst_7bja3ssea"
+								},
+								{
+									"key": "student_id",
+									"value": "student-001"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Analytics of a Specific Instance",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/v1/analytics/instances/:instance_id/metrics",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"analytics",
+								"instances",
+								":instance_id",
+								"metrics"
+							],
+							"variable": [
+								{
+									"key": "instance_id",
+									"value": "inst_7bja3ssea"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseURL",
+			"value": "",
+			"type": "default"
+		}
+	]
+}
