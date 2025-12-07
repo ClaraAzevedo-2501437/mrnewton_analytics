@@ -5,6 +5,7 @@ from datetime import datetime
 import logging
 
 from app.routers import analytics
+from app.database.mongodb import connect_to_mongodb, close_mongodb_connection
 
 # Configure logging
 logging.basicConfig(
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="MrNewton Analytics Provider API",
-    description="Backend skeleton for MrNewton Analytics Provider in Inven!RA architecture. Provides static JSON responses for analytics endpoints.",
+    description="Analytics provider for MrNewton in Inven!RA architecture. Calculates and provides quantitative and qualitative metrics from student submissions.",
     version="1.0.0",
     docs_url="/api-docs",
     redoc_url="/redoc"
@@ -30,6 +31,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Startup event: Connect to MongoDB
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting up MrNewton Analytics API...")
+    await connect_to_mongodb()
+    logger.info("MongoDB connected successfully")
+
+# Shutdown event: Close MongoDB connection
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("Shutting down MrNewton Analytics API...")
+    await close_mongodb_connection()
+    logger.info("MongoDB connection closed")
 
 # Request logger middleware
 @app.middleware("http")

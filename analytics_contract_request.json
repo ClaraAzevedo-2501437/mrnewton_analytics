@@ -1,0 +1,41 @@
+{
+  "qualitative": [
+    {
+      "name": "answer_rationale",
+      "type": "text/plain",
+      "description": "Descrição do raciocínio do estudante para avaliação qualitativa"
+    }
+  ],
+  "quantitative": [
+    {
+      "name": "total_attempts",
+      "type": "integer",
+      "description": "Número total de tentativas realizadas em toda a atividade"
+    },
+    {
+      "name": "total_time_seconds",
+      "type": "integer",
+      "description": "Tempo total gasto na atividade, em segundos"
+    },
+    {
+      "name": "average_time_per_attempt",
+      "type": "number",
+      "description": "Tempo médio gasto por tentativa"
+    },
+    {
+      "name": "number_of_correct_answers",
+      "type": "integer",
+      "description": "Número de respostas corretas (opção correta selecionada)"
+    },
+    {
+      "name": "final_score",
+      "type": "number",
+      "description": "Pontuação final ponderada (0-1), calculada segundo a política de pontuação"
+    },
+    {
+      "name": "activity_success",
+      "type": "boolean",
+      "description": "Indicador se o aluno atingiu o objetivo mínimo definido (threshold)"
+    }
+  ]
+}
