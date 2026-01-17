@@ -24,8 +24,7 @@ class AnalyticsMetricsController:
     async def get_instance_metrics(
         self,
         instance_id: str,
-        metric_id: str,
-        force_recalculate: bool = False
+        metric_id: str
     ) -> Dict[str, Any]:
         """
         Get analytics metrics for all students in an instance for a specific metric.
@@ -33,7 +32,6 @@ class AnalyticsMetricsController:
         Args:
             instance_id: The instance ID
             metric_id: The specific metric to calculate
-            force_recalculate: Force recalculation ignoring cache
             
         Returns:
             Formatted metrics response with student data
@@ -44,8 +42,7 @@ class AnalyticsMetricsController:
         """
         metrics_list = await self.analytics_service.calculate_instance_metrics(
             instance_id,
-            metric_id,
-            force_recalculate
+            metric_id
         )
         
         return {
@@ -65,8 +62,7 @@ class AnalyticsMetricsController:
     async def get_student_metrics(
         self,
         instance_id: str,
-        student_id: str,
-        force_recalculate: bool = False
+        student_id: str
     ) -> Dict[str, Any]:
         """
         Get analytics metrics for a specific student in an instance.
@@ -74,7 +70,6 @@ class AnalyticsMetricsController:
         Args:
             instance_id: The instance ID
             student_id: The student ID
-            force_recalculate: Force recalculation ignoring cache
             
         Returns:
             Formatted metrics response for the student
@@ -85,8 +80,7 @@ class AnalyticsMetricsController:
         """
         metrics = await self.analytics_service.calculate_metrics(
             instance_id,
-            student_id,
-            force_recalculate
+            student_id
         )
         
         return {

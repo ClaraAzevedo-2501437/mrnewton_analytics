@@ -1,15 +1,13 @@
 from fastapi import APIRouter, Path, HTTPException, Depends, Body, Query
-from datetime import datetime
 from typing import List
 from app.database.mongodb import get_database
 from app.repositories.contract_repository import AnalyticsContractRepository
-from app.repositories.metrics_repository import AnalyticsMetricsRepository
 from app.clients.activity_client import ActivityClient
 from app.services.analytics_service import AnalyticsCalculationService
 from app.services.contract_service import AnalyticsContractService
 from app.controllers.contract_controller import AnalyticsContractController
 from app.controllers.metrics_controller import AnalyticsMetricsController
-from app.models.schemas import MetricDefinition, AnalyticsContract
+from app.models.schemas import MetricDefinition
 
 router = APIRouter()
 
@@ -17,10 +15,6 @@ router = APIRouter()
 def get_contract_repository():
     db = get_database()
     return AnalyticsContractRepository(db)
-
-def get_metrics_repository():
-    db = get_database()
-    return AnalyticsMetricsRepository(db)
 
 def get_activity_client():
     return ActivityClient()
@@ -36,10 +30,9 @@ def get_contract_controller(
     return AnalyticsContractController(contract_service)
 
 def get_analytics_service(
-    activity_client: ActivityClient = Depends(get_activity_client),
-    metrics_repository: AnalyticsMetricsRepository = Depends(get_metrics_repository)
+    activity_client: ActivityClient = Depends(get_activity_client)
 ):
-    return AnalyticsCalculationService(activity_client, metrics_repository)
+    return AnalyticsCalculationService(activity_client)
 
 def get_metrics_controller(
     analytics_service: AnalyticsCalculationService = Depends(get_analytics_service)
@@ -91,7 +84,6 @@ async def create_analytics_contract(
 async def get_instance_metrics(
     instance_id: str = Path(..., description="The instance ID to retrieve metrics for"),
     metric_id: str = Query(..., description="The metric ID to calculate (e.g., 'total_attempts', 'final_score')"),
-    force_recalculate: bool = Query(False, description="Force recalculation of metrics, ignoring cache"),
     metrics_controller: AnalyticsMetricsController = Depends(get_metrics_controller)
 ):
     """
@@ -99,7 +91,7 @@ async def get_instance_metrics(
     Uses the Strategy pattern to calculate only the requested metric.
     """
     try:
-        return await metrics_controller.get_instance_metrics(instance_id, metric_id, force_recalculate)
+        return await metrics_controller.get_instance_metrics(instance_id, metric_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -110,7 +102,6 @@ async def get_instance_metrics(
 async def get_student_metrics(
     instance_id: str = Path(..., description="The instance ID to retrieve metrics for"),
     student_id: str = Path(..., description="The student ID to retrieve metrics for"),
-    force_recalculate: bool = Query(False, description="Force recalculation of metrics, ignoring cache"),
     metrics_controller: AnalyticsMetricsController = Depends(get_metrics_controller)
 ):
     """
@@ -118,7 +109,7 @@ async def get_student_metrics(
     Calculates metrics on-demand from submission data.
     """
     try:
-        return await metrics_controller.get_student_metrics(instance_id, student_id, force_recalculate)
+        return await metrics_controller.get_student_metrics(instance_id, student_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

@@ -13,7 +13,6 @@ from app.models.schemas import (
     AttemptResult
 )
 from app.clients.activity_client import ActivityClient
-from app.repositories.metrics_repository import AnalyticsMetricsRepository
 from app.strategies.metric_strategy_resolver import MetricStrategyResolver
 
 
@@ -22,31 +21,26 @@ class AnalyticsCalculationService:
     Service for calculating analytics metrics from student submissions.
     
     Uses the Strategy pattern to delegate metric calculations to specific strategy classes.
+    Metrics are calculated on-demand without caching.
     """
     
-    def __init__(
-        self,
-        activity_client: ActivityClient,
-        metrics_repository: AnalyticsMetricsRepository
-    ):
+    def __init__(self, activity_client: ActivityClient):
         self.activity_client = activity_client
-        self.metrics_repository = metrics_repository
         self.strategy_resolver = MetricStrategyResolver()
     
     async def calculate_instance_metrics(
         self,
         instance_id: str,
-        metric_id: str,
-        force_recalculate: bool = False
+        metric_id: str
     ) -> List[AnalyticsMetrics]:
         """
         Calculate analytics metrics for all students in an instance for a specific metric.
         Uses the Strategy pattern to select and execute only the requested metric calculation.
+        Metrics are calculated on-demand without caching.
         
         Args:
             instance_id: The instance ID
             metric_id: The specific metric to calculate (e.g., 'total_attempts', 'final_score')
-            force_recalculate: If True, recalculate even if cached metrics exist
         
         Returns:
             List of AnalyticsMetrics for all students in the instance
@@ -83,9 +77,6 @@ class AnalyticsCalculationService:
                 calculated_at=datetime.utcnow().isoformat() + "Z"
             )
             
-            # Cache the metrics
-            await self.metrics_repository.save(metrics)
-            
             all_metrics.append(metrics)
         
         return all_metrics
@@ -93,30 +84,19 @@ class AnalyticsCalculationService:
     async def calculate_metrics(
         self,
         instance_id: str,
-        student_id: str,
-        force_recalculate: bool = False
+        student_id: str
     ) -> AnalyticsMetrics:
         """
-        Calculate analytics metrics for a student's submission
+        Calculate analytics metrics for a student's submission.
+        Metrics are calculated on-demand without caching.
         
         Args:
             instance_id: The instance ID
             student_id: The student ID
-            force_recalculate: If True, recalculate even if cached metrics exist
         
         Returns:
             AnalyticsMetrics with calculated quantitative and qualitative data
         """
-        
-        # Check if we have cached metrics
-        if not force_recalculate:
-            cached_metrics = await self.metrics_repository.find_by_instance_and_student(
-                instance_id,
-                student_id
-            )
-            if cached_metrics:
-                return cached_metrics
-        
         # Fetch submission data from activity component
         submission = await self.activity_client.get_submission(instance_id, student_id)
         if not submission:
@@ -144,9 +124,6 @@ class AnalyticsCalculationService:
             qualitative=qualitative,
             calculated_at=datetime.utcnow().isoformat() + "Z"
         )
-        
-        # Cache the metrics
-        await self.metrics_repository.save(metrics)
         
         return metrics
     
