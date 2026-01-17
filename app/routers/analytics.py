@@ -6,6 +6,9 @@ from app.repositories.contract_repository import AnalyticsContractRepository
 from app.repositories.metrics_repository import AnalyticsMetricsRepository
 from app.clients.activity_client import ActivityClient
 from app.services.analytics_service import AnalyticsCalculationService
+from app.services.contract_service import AnalyticsContractService
+from app.controllers.contract_controller import AnalyticsContractController
+from app.controllers.metrics_controller import AnalyticsMetricsController
 from app.models.schemas import MetricDefinition, AnalyticsContract
 
 router = APIRouter()
@@ -22,64 +25,66 @@ def get_metrics_repository():
 def get_activity_client():
     return ActivityClient()
 
+def get_contract_service(
+    contract_repo: AnalyticsContractRepository = Depends(get_contract_repository)
+):
+    return AnalyticsContractService(contract_repo)
+
+def get_contract_controller(
+    contract_service: AnalyticsContractService = Depends(get_contract_service)
+):
+    return AnalyticsContractController(contract_service)
+
 def get_analytics_service(
     activity_client: ActivityClient = Depends(get_activity_client),
     metrics_repository: AnalyticsMetricsRepository = Depends(get_metrics_repository)
 ):
     return AnalyticsCalculationService(activity_client, metrics_repository)
 
+def get_metrics_controller(
+    analytics_service: AnalyticsCalculationService = Depends(get_analytics_service)
+):
+    return AnalyticsMetricsController(analytics_service)
+
 
 @router.get("/contract")
 async def get_analytics_contract(
-    contract_repo: AnalyticsContractRepository = Depends(get_contract_repository)
+    contract_controller: AnalyticsContractController = Depends(get_contract_controller)
 ):
     """
     Get the analytics contract listing all supported qualitative and quantitative metrics.
     """
-    # Get the current analytics contract
-    contract = await contract_repo.get_current()
-    
-    if not contract:
+    try:
+        return await contract_controller.get_contract()
+    except ValueError as e:
         raise HTTPException(
             status_code=404,
-            detail="No analytics contract found. Please create one using POST /api/v1/analytics/contract"
+            detail=str(e)
         )
-    
-    # Format response to match expected structure
-    return {
-        "qualAnalytics": [metric.model_dump() for metric in contract.qualitative],
-        "quantAnalytics": [metric.model_dump() for metric in contract.quantitative]
-    }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving analytics contract: {str(e)}"
+        )
 
 
 @router.post("/contract")
 async def create_analytics_contract(
     qualitative: List[MetricDefinition] = Body(..., description="List of qualitative metrics"),
     quantitative: List[MetricDefinition] = Body(..., description="List of quantitative metrics"),
-    contract_repo: AnalyticsContractRepository = Depends(get_contract_repository)
+    contract_controller: AnalyticsContractController = Depends(get_contract_controller)
 ):
     """
     Create or update the analytics contract with custom metrics.
     This defines which qualitative and quantitative metrics are available.
     """
     try:
-        # Create new contract
-        contract = AnalyticsContract(
-            qualitative=qualitative,
-            quantitative=quantitative
-        )
-        
-        # Save to database
-        saved_contract = await contract_repo.save(contract)
-        
-        return {
-            "message": "Analytics contract created successfully",
-            "qualAnalytics": [metric.model_dump() for metric in saved_contract.qualitative],
-            "quantAnalytics": [metric.model_dump() for metric in saved_contract.quantitative]
-        }
-    
+        return await contract_controller.create_contract(qualitative, quantitative)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating analytics contract: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error creating analytics contract: {str(e)}"
+        )
 
 
 @router.get("/instances/{instance_id}/metrics")
@@ -87,29 +92,14 @@ async def get_instance_metrics(
     instance_id: str = Path(..., description="The instance ID to retrieve metrics for"),
     metric_id: str = Query(..., description="The metric ID to calculate (e.g., 'total_attempts', 'final_score')"),
     force_recalculate: bool = Query(False, description="Force recalculation of metrics, ignoring cache"),
-    analytics_service: AnalyticsCalculationService = Depends(get_analytics_service)
+    metrics_controller: AnalyticsMetricsController = Depends(get_metrics_controller)
 ):
     """
     Get analytics metrics for all students in an activity instance for a specific metric.
     Uses the Strategy pattern to calculate only the requested metric.
     """
     try:
-        metrics_list = await analytics_service.calculate_instance_metrics(instance_id, metric_id, force_recalculate)
-        
-        return {
-            "instance_id": instance_id,
-            "count": len(metrics_list),
-            "students": [
-                {
-                    "student_id": metrics.student_id,
-                    "metrics": metrics.metrics.model_dump(),
-                    "qualitative": metrics.qualitative.model_dump(),
-                    "calculated_at": metrics.calculated_at
-                }
-                for metrics in metrics_list
-            ]
-        }
-    
+        return await metrics_controller.get_instance_metrics(instance_id, metric_id, force_recalculate)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -121,23 +111,14 @@ async def get_student_metrics(
     instance_id: str = Path(..., description="The instance ID to retrieve metrics for"),
     student_id: str = Path(..., description="The student ID to retrieve metrics for"),
     force_recalculate: bool = Query(False, description="Force recalculation of metrics, ignoring cache"),
-    analytics_service: AnalyticsCalculationService = Depends(get_analytics_service)
+    metrics_controller: AnalyticsMetricsController = Depends(get_metrics_controller)
 ):
     """
     Get analytics metrics for a specific student in an activity instance.
     Calculates metrics on-demand from submission data.
     """
     try:
-        metrics = await analytics_service.calculate_metrics(instance_id, student_id, force_recalculate)
-        
-        return {
-            "instance_id": metrics.instance_id,
-            "student_id": metrics.student_id,
-            "metrics": metrics.metrics.model_dump(),
-            "qualitative": metrics.qualitative.model_dump(),
-            "calculated_at": metrics.calculated_at
-        }
-    
+        return await metrics_controller.get_student_metrics(instance_id, student_id, force_recalculate)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
