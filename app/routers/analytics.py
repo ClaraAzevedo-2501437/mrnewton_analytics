@@ -85,15 +85,16 @@ async def create_analytics_contract(
 @router.get("/instances/{instance_id}/metrics")
 async def get_instance_metrics(
     instance_id: str = Path(..., description="The instance ID to retrieve metrics for"),
+    metric_id: str = Query(..., description="The metric ID to calculate (e.g., 'total_attempts', 'final_score')"),
     force_recalculate: bool = Query(False, description="Force recalculation of metrics, ignoring cache"),
     analytics_service: AnalyticsCalculationService = Depends(get_analytics_service)
 ):
     """
-    Get analytics metrics for all students in an activity instance.
-    Returns cached metrics for all students who have submitted.
+    Get analytics metrics for all students in an activity instance for a specific metric.
+    Uses the Strategy pattern to calculate only the requested metric.
     """
     try:
-        metrics_list = await analytics_service.calculate_instance_metrics(instance_id, force_recalculate)
+        metrics_list = await analytics_service.calculate_instance_metrics(instance_id, metric_id, force_recalculate)
         
         return {
             "instance_id": instance_id,

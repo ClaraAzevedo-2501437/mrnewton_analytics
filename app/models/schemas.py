@@ -8,6 +8,7 @@ from datetime import datetime
 
 class MetricDefinition(BaseModel):
     """Definition of a single metric in the analytics contract"""
+    metric_id: str
     name: str
     type: str
     description: Optional[str] = None

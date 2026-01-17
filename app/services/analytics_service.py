@@ -1,5 +1,5 @@
 """
-Service for calculating analytics metrics from submission data
+Service for calculating analytics metrics from submission data using Strategy pattern
 """
 from datetime import datetime
 from typing import List, Dict
@@ -14,11 +14,14 @@ from app.models.schemas import (
 )
 from app.clients.activity_client import ActivityClient
 from app.repositories.metrics_repository import AnalyticsMetricsRepository
+from app.strategies.metric_strategy_resolver import MetricStrategyResolver
 
 
 class AnalyticsCalculationService:
     """
-    Service for calculating analytics metrics from student submissions
+    Service for calculating analytics metrics from student submissions.
+    
+    Uses the Strategy pattern to delegate metric calculations to specific strategy classes.
     """
     
     def __init__(
@@ -28,17 +31,21 @@ class AnalyticsCalculationService:
     ):
         self.activity_client = activity_client
         self.metrics_repository = metrics_repository
+        self.strategy_resolver = MetricStrategyResolver()
     
     async def calculate_instance_metrics(
         self,
         instance_id: str,
+        metric_id: str,
         force_recalculate: bool = False
     ) -> List[AnalyticsMetrics]:
         """
-        Calculate analytics metrics for all students in an instance
+        Calculate analytics metrics for all students in an instance for a specific metric.
+        Uses the Strategy pattern to select and execute only the requested metric calculation.
         
         Args:
             instance_id: The instance ID
+            metric_id: The specific metric to calculate (e.g., 'total_attempts', 'final_score')
             force_recalculate: If True, recalculate even if cached metrics exist
         
         Returns:
@@ -63,8 +70,8 @@ class AnalyticsCalculationService:
         # Calculate metrics for each student
         all_metrics = []
         for submission in submissions:
-            # Calculate quantitative metrics
-            quantitative = self._calculate_quantitative_metrics(submission, activity)
+            # Calculate only the requested metric using the appropriate strategy
+            quantitative = self._calculate_specific_metric(submission, activity, metric_id)
             qualitative = self._extract_qualitative_metrics(submission)
             
             # Create analytics metrics object
@@ -149,15 +156,12 @@ class AnalyticsCalculationService:
         activity: Activity
     ) -> QuantitativeMetrics:
         """
-        Calculate quantitative metrics from submission data
+        Calculate quantitative metrics from submission data using Strategy pattern.
+        
+        Each metric is calculated by its corresponding strategy, eliminating
+        conditional logic from this service.
         """
-        total_exercises = activity.number_of_exercises
-        attempts = submission.attempts
-        
-        # Get the last (most recent) attempt
-        last_attempt = attempts[-1] if attempts else None
-        
-        if not last_attempt:
+        if not submission.attempts:
             # No attempts, return zeros
             return QuantitativeMetrics(
                 total_attempts=0,
@@ -168,33 +172,33 @@ class AnalyticsCalculationService:
                 activity_success=False
             )
         
-        # Total attempts across all exercises
-        total_attempts = len(attempts)
+        # Wrap single submission in list for strategy interface
+        submissions = [submission]
         
-        # Calculate time spent
-        total_time_seconds = self._calculate_total_time(submission, activity)
-        
-        # Average time per attempt
-        average_time_per_attempt = (
-            total_time_seconds / total_attempts if total_attempts > 0 else 0.0
+        # Calculate each metric using its strategy
+        total_attempts = self.strategy_resolver.get_strategy("total_attempts").calculate(
+            submissions, activity
         )
         
-        # Count correct answers
-        number_of_correct_answers = self._count_correct_answers(
-            last_attempt,
-            activity
+        total_time_seconds = self.strategy_resolver.get_strategy("total_time_seconds").calculate(
+            submissions, activity
         )
         
-        # Calculate final score based on scoring policy
-        final_score = self._calculate_final_score(
-            submission,
-            activity,
-            number_of_correct_answers
+        average_time_per_attempt = self.strategy_resolver.get_strategy("average_time_per_attempt").calculate(
+            submissions, activity
         )
         
-        # Check if activity was successful
-        approval_threshold = activity.approval_threshold or 0.5
-        activity_success = final_score >= approval_threshold
+        number_of_correct_answers = self.strategy_resolver.get_strategy("number_of_correct_answers").calculate(
+            submissions, activity
+        )
+        
+        final_score = self.strategy_resolver.get_strategy("final_score").calculate(
+            submissions, activity
+        )
+        
+        activity_success = self.strategy_resolver.get_strategy("activity_success").calculate(
+            submissions, activity
+        )
         
         return QuantitativeMetrics(
             total_attempts=total_attempts,
@@ -203,6 +207,67 @@ class AnalyticsCalculationService:
             number_of_correct_answers=number_of_correct_answers,
             final_score=final_score,
             activity_success=activity_success
+        )
+    
+    def _calculate_specific_metric(
+        self,
+        submission: Submission,
+        activity: Activity,
+        metric_id: str
+    ) -> QuantitativeMetrics:
+        """
+        Calculate a specific metric using the Strategy pattern.
+        Only the requested metric is calculated; others are set to default values.
+        
+        Args:
+            submission: The student submission data
+            activity: The activity configuration
+            metric_id: The metric to calculate
+        
+        Returns:
+            QuantitativeMetrics with only the requested metric calculated
+        """
+        if not submission.attempts:
+            # No attempts, return zeros
+            return QuantitativeMetrics(
+                total_attempts=0,
+                total_time_seconds=0,
+                average_time_per_attempt=0.0,
+                number_of_correct_answers=0,
+                final_score=0.0,
+                activity_success=False
+            )
+        
+        # Map frontend metric_ids to backend strategy keys
+        metric_id_map = {
+            "total_attempts": "total_attempts",
+            "total_time": "total_time_seconds",
+            "average_time_per_attempt": "average_time_per_attempt",
+            "correct_answers": "number_of_correct_answers",
+            "final_score": "final_score",
+            "activity_success": "activity_success"
+        }
+        
+        strategy_key = metric_id_map.get(metric_id)
+        if not strategy_key:
+            raise ValueError(f"Unknown metric_id: {metric_id}")
+        
+        # Wrap single submission in list for strategy interface
+        submissions = [submission]
+        
+        # Calculate only the requested metric using its strategy
+        strategy = self.strategy_resolver.get_strategy(strategy_key)
+        calculated_value = strategy.calculate(submissions, activity)
+        
+        # Create QuantitativeMetrics with only the requested metric populated
+        # Set all others to 0 or False
+        return QuantitativeMetrics(
+            total_attempts=calculated_value if metric_id == "total_attempts" else 0,
+            total_time_seconds=calculated_value if metric_id == "total_time" else 0,
+            average_time_per_attempt=calculated_value if metric_id == "average_time_per_attempt" else 0.0,
+            number_of_correct_answers=calculated_value if metric_id == "correct_answers" else 0,
+            final_score=calculated_value if metric_id == "final_score" else 0.0,
+            activity_success=calculated_value if metric_id == "activity_success" else False
         )
     
     def _extract_qualitative_metrics(self, submission: Submission) -> QualitativeMetrics:
@@ -219,110 +284,3 @@ class AnalyticsCalculationService:
                     rationales.append(answer.rationale)
         
         return QualitativeMetrics(answer_rationale=rationales)
-    
-    def _calculate_total_time(self, submission: Submission, activity: Activity) -> int:
-        """
-        Calculate total time spent on the activity in seconds
-        """
-        if not submission.attempts or len(submission.attempts) == 0:
-            return 0
-        
-        # If attempts have timeSpentSeconds, sum them up
-        if all(attempt.timeSpentSeconds is not None for attempt in submission.attempts):
-            return sum(attempt.timeSpentSeconds for attempt in submission.attempts)
-        
-        # Fallback: calculate from timestamps (for backward compatibility)
-        try:
-            # If only one attempt, return 0 since we can't calculate duration
-            if len(submission.attempts) == 1:
-                return 0
-            
-            # Parse timestamps for first and last attempts
-            first_submitted = datetime.fromisoformat(
-                submission.attempts[0].submittedAt.replace("Z", "+00:00")
-            )
-            last_submitted = datetime.fromisoformat(
-                submission.attempts[-1].submittedAt.replace("Z", "+00:00")
-            )
-            
-            # Calculate difference in seconds between first and last attempt
-            time_diff = (last_submitted - first_submitted).total_seconds()
-            
-            # Ensure non-negative
-            time_diff = max(0, time_diff)
-            
-            # Cap at activity's total time limit if configured
-            max_time = activity.total_time_minutes * 60
-            return min(int(time_diff), max_time) if max_time > 0 else int(time_diff)
-        
-        except Exception as e:
-            print(f"Error calculating time: {e}")
-            # Fallback: estimate based on average
-            return activity.total_time_minutes * 60
-    
-    def _count_correct_answers(self, attempt: AttemptResult, activity: Activity) -> int:
-        """
-        Count the number of correct answers in an attempt
-        
-        A question is correct if:
-        - The selected option matches the correct option
-        - The answer is within tolerance (if applicable)
-        """
-        correct_count = 0
-        
-        # Create a mapping of question index to exercise
-        exercises = activity.exercises
-        
-        for question_id, answer in attempt.answers.items():
-            # Extract question index from question_id (e.g., "q0" -> 0)
-            try:
-                q_index = int(question_id.replace("q", ""))
-                if q_index < len(exercises):
-                    exercise = exercises[q_index]
-                    
-                    # Check if selected option is correct
-                    if answer.selectedOption == exercise.correct_options:
-                        correct_count += 1
-            
-            except (ValueError, IndexError) as e:
-                print(f"Error processing question {question_id}: {e}")
-                continue
-        
-        return correct_count
-    
-    def _calculate_final_score(
-        self,
-        submission: Submission,
-        activity: Activity,
-        correct_answers: int
-    ) -> float:
-        """
-        Calculate final score based on scoring policy
-        
-        Policies:
-        - linear: score = correct_answers / total_exercises
-        - non-linear: score based on best attempt with diminishing returns
-        """
-        total_exercises = activity.number_of_exercises
-        
-        if total_exercises == 0:
-            return 0.0
-        
-        scoring_policy = activity.scoring_policy or "linear"
-        
-        if scoring_policy == "linear":
-            # Simple linear scoring
-            return correct_answers / total_exercises
-        
-        elif scoring_policy == "non-linear":
-            # Non-linear scoring with penalty for retries
-            base_score = correct_answers / total_exercises
-            num_attempts = len(submission.attempts)
-            
-            # Apply penalty: reduce score by 10% for each retry beyond the first
-            penalty_factor = max(0.5, 1.0 - (0.1 * (num_attempts - 1)))
-            return base_score * penalty_factor
-        
-        else:
-            # Default to linear
-            return correct_answers / total_exercises
